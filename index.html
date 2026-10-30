@@ -1,0 +1,1649 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Navigator - Bike & Marine</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23ff0000' opacity='0.7'/><circle cx='50' cy='50' r='30' fill='%23ff0000'/><circle cx='50' cy='50' r='15' fill='%23ffffff'/><polygon points='50,10 90,80 50,70 10,80' fill='%2300bcd4'/></svg>" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/leaflet-rotate.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        #map {
+            flex: 1;
+            background: #333;
+            position: relative;
+        }
+        
+        .panel {
+            width: 320px;
+            background: #222;
+            border-left: 2px solid #00bcd4;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+            transition: transform 0.3s ease;
+        }
+        
+        .hamburger {
+            display: none;
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 999;
+            width: 40px;
+            height: 40px;
+            background: #00bcd4;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: #000;
+        }
+        
+        .hamburger:hover {
+            background: #00d4e8;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            .hamburger {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .panel {
+                position: fixed;
+                top: 0;
+                right: -320px;
+                width: 280px;
+                height: 100vh;
+                border-left: 2px solid #00bcd4;
+                border-top: none;
+                z-index: 1001;
+                border-radius: 0;
+            }
+            
+            .panel.open {
+                right: 0;
+            }
+            
+            #map {
+                width: 100%;
+                height: 100vh;
+            }
+        }
+        
+        .panel-section {
+            padding: 12px;
+            border-bottom: 1px solid #444;
+        }
+        
+        .panel-section h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            color: #00bcd4;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            padding: 4px 0;
+            color: #ddd;
+        }
+        
+        .data-label {
+            color: #888;
+        }
+        
+        .data-value {
+            font-weight: bold;
+            color: #00bcd4;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            flex: 1;
+            min-width: 60px;
+            padding: 10px;
+            background: #00bcd4;
+            color: #000;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #00d4e8;
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        button.danger:hover {
+            background: #ff8888;
+        }
+        
+        button.warning {
+            background: #ffa500;
+            color: white;
+        }
+        
+        button.warning:hover {
+            background: #ffb833;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        input[type="file"], input[type="text"], select {
+            width: 100%;
+            padding: 6px;
+            margin: 4px 0;
+            background: #333;
+            border: 1px solid #555;
+            color: #fff;
+            border-radius: 3px;
+            font-size: 0.85rem;
+        }
+        
+        input[type="file"]::-webkit-file-upload-button {
+            background: #00bcd4;
+            color: #000;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid #444;
+        }
+        
+        .tab-button {
+            flex: 1;
+            padding: 8px;
+            background: #2a2a2a;
+            color: #888;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            border-radius: 0;
+            transition: all 0.2s;
+        }
+        
+        .tab-button.active {
+            background: #00bcd4;
+            color: #000;
+            font-weight: bold;
+        }
+        
+        .tab-button:hover {
+            background: #333;
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 12px;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .speed-display {
+            position: absolute;
+            top: 75px;
+            left: 16px;
+            background: rgba(0, 188, 212, 0.95);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            z-index: 999;
+            text-align: center;
+            min-width: 60px;
+        }
+        
+        .speed-label {
+            font-size: 0.65rem;
+            color: #ddd;
+            margin-top: 2px;
+        }
+        
+        .destination-display {
+            position: absolute;
+            top: 75px;
+            right: 16px;
+            background: rgba(0, 188, 212, 0.95);
+            color: #fff;
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            z-index: 999;
+            text-align: center;
+            min-width: 110px;
+        }
+        
+        .destination-display > div {
+            margin: 2px 0;
+        }
+        
+        .destination-display > div:first-child {
+            font-size: 0.65rem;
+            color: #ddd;
+        }
+        
+        .destination-display > div:nth-child(2) {
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        
+        .destination-display > div:last-child {
+            font-size: 0.65rem;
+            color: #ddd;
+        }
+        
+        .north-btn {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #4caf50;
+            color: #fff;
+            border: 2px solid #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+        
+        .north-btn:hover {
+            background: #66bb6a;
+        }
+        
+        .center-btn {
+            position: absolute;
+            bottom: 45px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #00bcd4;
+            color: #000;
+            border: 2px solid #fff;
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: all 0.2s;
+            z-index: 1000;
+        }
+        
+        .center-btn:hover {
+            background: #00d4e8;
+            transform: scale(1.1);
+        }
+        
+        .center-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .status-recording {
+            background: #ff6b6b;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.8rem;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .nav-panel {
+            background: #1a4d52;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 8px 0;
+        }
+        
+        .nav-value {
+            font-size: 1.2rem;
+            color: #00d4e8;
+            font-weight: bold;
+            margin: 4px 0;
+        }
+        
+        .waypoint-list {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+        }
+        
+        .waypoint-item {
+            background: #2a2a2a;
+            padding: 8px;
+            margin: 4px 0;
+            border-radius: 3px;
+            border-left: 3px solid #00bcd4;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .waypoint-item:hover {
+            background: #333;
+        }
+        
+        .user-arrow {
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        .leaflet-marker-icon.user-arrow {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            width: auto !important;
+            height: auto !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="map">
+            <button class="north-btn" id="northBtn" onclick="toggleNorthUp()">🧭</button>
+            <div class="speed-display">
+                <div id="speedValue">0</div>
+                <div class="speed-label">km/h</div>
+            </div>
+            <div class="destination-display" id="destinationDisplay" style="display: none;">
+                <div>📍 <span id="destOverlayName">--</span></div>
+                <div><span id="destOverlayDist">--</span></div>
+                <div>⏱️ <span id="destOverlayTime">--</span></div>
+            </div>
+            <div id="debugOverlay" style="position: absolute; bottom: 16px; right: 16px; background: rgba(255,0,0,0.9); color: white; padding: 10px 14px; border-radius: 4px; font-size: 0.75rem; z-index: 999; display: none; min-width: 140px;">
+                <div style="margin-bottom: 4px; font-weight: bold;">🔴 DEBUG HEADS-UP</div>
+                <div>Heading: <span id="debugHeading">--</span>°</div>
+                <div>Speed: <span id="debugSpeed">--</span>m/s</div>
+                <div>Valid? <span id="debugValid">NO</span></div>
+                <div style="margin-top: 4px; border-top: 1px solid #fff; padding-top: 4px;">Rotation: <span id="debugRotation">--</span>°</div>
+                <div>Transform: <span id="debugTransform">NONE</span></div>
+            </div>
+            <button class="hamburger" onclick="togglePanel()">☰</button>
+            <button class="center-btn" onclick="centerMapAndZoom()">📍</button>
+        </div>
+        
+        <div class="panel" id="panel">
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('status')">Status</button>
+                <button class="tab-button" onclick="switchTab('waypoints')">Waypoint</button>
+                <button class="tab-button" onclick="switchTab('gpx')">GPX</button>
+            </div>
+            
+            <div id="status" class="tab-content active">
+                <div id="recordingStatus"></div>
+                
+                <div class="panel-section">
+                    <h3>Posizione</h3>
+                    <div class="data-row">
+                        <span class="data-label">Lat/Lon:</span>
+                        <span class="data-value" id="coords">--</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Precisione:</span>
+                        <span class="data-value" id="accuracy">--</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Direzione:</span>
+                        <span class="data-value" id="heading">--</span>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Viaggio</h3>
+                    <div class="data-row">
+                        <span class="data-label">Velocità:</span>
+                        <span class="data-value" id="speed">0 km/h</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Media:</span>
+                        <span class="data-value" id="avgSpeed">0 km/h</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Distanza:</span>
+                        <span class="data-value" id="distance">0 km</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Tempo:</span>
+                        <span class="data-value" id="time">00:00:00</span>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Destinazione</h3>
+                    <div class="data-row">
+                        <span class="data-label">Waypoint:</span>
+                        <span class="data-value" id="destWaypoint">--</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Distanza:</span>
+                        <span class="data-value" id="destDistance">--</span>
+                    </div>
+                    <div class="data-row">
+                        <span class="data-label">Tempo (@ vel. att.):</span>
+                        <span class="data-value" id="destTime">--</span>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Registrazione</h3>
+                    <div class="button-group">
+                        <button onclick="startRecording()">▶ Start</button>
+                        <button onclick="pauseRecording()" id="pauseBtn" disabled>⏸ Pausa</button>
+                        <button onclick="stopRecording()" id="stopBtn" disabled class="danger">⏹ Stop</button>
+                    </div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Azioni</h3>
+                    <div class="button-group">
+                        <button onclick="toggleFollowMode()" id="followBtn">🎯 Follow ON</button>
+                        <button onclick="toggleMapRotation()" id="rotationBtn" style="margin-left: 8px; opacity: 0.5;" title="Beta disabilitato - In sviluppo">↻ Heads-Up (β)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="waypoints" class="tab-content">
+                <div class="panel-section">
+                    <h3>Nuovo Waypoint</h3>
+                    <input type="text" id="waypointName" placeholder="Nome">
+                    <input type="text" id="waypointNote" placeholder="Nota (opzionale)">
+                    <button onclick="saveWaypointHere()" style="width: 100%; margin-top: 6px;">💾 Salva Qui</button>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Naviga a Waypoint</h3>
+                    <select id="waypointDropbox" style="width: 100%; padding: 8px; margin-bottom: 8px; background: #333; color: #fff; border: 1px solid #666; border-radius: 4px;" onchange="handleWaypointDropboxChange()">
+                        <option value="">-- Seleziona un waypoint --</option>
+                    </select>
+                    <button onclick="navigateToSelectedWaypoint()" style="width: 100%;">🧭 Naviga a Waypoint</button>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>I Miei Waypoint</h3>
+                    <div class="waypoint-list" id="waypointList"></div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Import/Export</h3>
+                    <input type="file" id="waypointFile" accept=".json" onchange="loadWaypoints()">
+                    <button onclick="exportWaypoints()" style="width: 100%; margin-top: 6px;">⬇️ Esporta</button>
+                </div>
+            </div>
+            
+            <div id="gpx" class="tab-content">
+                <div class="panel-section">
+                    <h3>Carica GPX</h3>
+                    <input type="file" id="gpxFile" accept=".gpx" onchange="loadGPX()">
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Traccia Caricata</h3>
+                    <div id="gpxInfo" style="color: #888; font-size: 0.8rem;">Nessuna traccia</div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Segui Traccia</h3>
+                    <button onclick="startFollowGPXTrack()" id="followGPXBtn" disabled style="width: 100%;">Carica una traccia</button>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Simula Traccia</h3>
+                    <div style="margin-bottom: 8px;">
+                        <label style="font-size: 0.8rem; color: #888;">Velocità: <span id="speedLabel">5</span>x</label>
+                        <input type="range" id="simSpeedSlider" min="2" max="100" value="5" onchange="updateSimSpeed()" style="width: 100%; margin-top: 4px;">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="startSimulation()" id="simStartBtn" disabled>▶ Simula</button>
+                        <button onclick="stopSimulation()" id="simStopBtn" disabled class="danger">⏹ Stop</button>
+                    </div>
+                    <div id="simProgress" style="font-size: 0.75rem; color: #888; margin-top: 8px;">Progresso: <span id="simProgressValue">0</span>%</div>
+                </div>
+                
+                <div class="panel-section">
+                    <h3>Profilo Altimetrico</h3>
+                    <canvas id="elevationChart" width="280" height="120" style="border: 1px solid #444; border-radius: 4px; background: #1a1a1a; display: block;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/leaflet-rotate.umd.js"></script>
+    <script>
+        let map, userMarker, gpxLayer, gpxGuideLayer, recordingTrack = [];
+        let isRecording = false, isPaused = false;
+        let recordingStartTime = null, pausedTime = 0;
+        let lastCoords = null;
+        let suppressGPSUpdate = false; // Blocca aggiornamenti GPS temporaneamente
+        let followMode = true;
+        let waypoints = [];
+        let waypointRoutePolyline = null; // Rotta lineare verso il waypoint
+        let currentSelectedWaypoint = null; // Waypoint attualmente selezionato
+        let firstGPSFix = false;
+        
+        // Rotazione heads-up mappa
+        let mapRotationActive = false;
+        let lastValidHeading = 0;
+        let gpsErrorShown = false;
+        let gpxTrackPolyline = null; // La polyline della traccia GPX
+        let loadedGPXTrack = null; // Traccia GPX caricata
+        let loadedGPXElevations = null; // Elevazioni dal GPX
+        let followingGPXTrack = false; // Se stiamo seguendo la traccia
+        let simulatingTrack = false; // Se stiamo simulando
+        let simulationSpeed = 5; // Moltiplicatore velocità (2x-100x)
+        let simulationPointIndex = 0; // Indice punto attuale nella simulazione
+        let simulationInterval = null; // Timer della simulazione
+        let alarmActive = false; // Se l'allarme è attivo
+        const OFF_TRACK_THRESHOLD = 50; // metri
+        const OFF_TRACK_ALARM_INTERVAL = 5000; // beep ogni 5 secondi
+        
+        function initMap() {
+            map = L.map('map', {
+                bearing: 0,
+                pitchWithRotate: false
+            }).setView([45.5, 9.2], 12);
+            followMode = true;
+            
+            // Stamen Toner (affidabile, senza API key)
+            L.tileLayer('https://tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png', {
+                maxZoom: 18,
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Crea marker come freccia SVG
+            const arrowIcon = L.divIcon({
+                html: `<div style="background: none; border: none; box-shadow: none;"><svg width="32" height="32" viewBox="0 0 32 32" style="filter: drop-shadow(0 0 3px rgba(0,0,0,0.5));">
+                    <polygon points="16,0 28,32 16,24 4,32" fill="#00bcd4" stroke="white" stroke-width="1.5"/>
+                </svg></div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                className: ''
+            });
+            
+            userMarker = L.marker([0, 0], { icon: arrowIcon }).addTo(map);
+            
+            gpxLayer = L.featureGroup().addTo(map);
+            gpxGuideLayer = L.featureGroup().addTo(map);
+            
+            // Listener per aggiornare spessore traccia al cambio zoom
+            map.on('zoom', updateTrackWeight);
+            
+            loadWaypointsFromStorage();
+            renderWaypointList();
+            startGPS();
+            startTimer();
+        }
+        
+        function updateTrackWeight() {
+            if (!gpxTrackPolyline) return;
+            
+            const zoom = map.getZoom();
+            // Spessore: 2px a zoom 12, aumenta di 0.4px per ogni livello di zoom
+            const weight = 2 + (zoom - 12) * 0.4;
+            gpxTrackPolyline.setStyle({ weight: Math.max(2, weight) });
+        }
+        
+        function triggerOffTrackAlarm() {
+            if (alarmActive) return;
+            
+            alarmActive = true;
+            
+            // Beep sonoro
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                osc.frequency.value = 1000; // Hz
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                
+                osc.start(audioContext.currentTime);
+                osc.stop(audioContext.currentTime + 0.2);
+            } catch (e) {
+                console.log('Audio non disponibile');
+            }
+            
+            // Resetta lo stato dopo 5 secondi
+            setTimeout(() => {
+                alarmActive = false;
+            }, OFF_TRACK_ALARM_INTERVAL);
+        }
+        
+        function startGPS() {
+            const proto = window.location.protocol;
+            const host = window.location.host || '(file locale)';
+            
+            if (!navigator.geolocation) {
+                return;
+            }
+            
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude, accuracy, heading, speed } = position.coords;
+                    lastCoords = { lat: latitude, lon: longitude, heading, speed, accuracy };
+                    
+                    if (!firstGPSFix) {
+                        firstGPSFix = true;
+                        map.setView([latitude, longitude], 17);
+                        document.getElementById('followBtn').style.background = '#4caf50';
+                        document.getElementById('followBtn').textContent = '🎯 Follow ON';
+                    }
+                    
+                    updateUI();
+                    
+                    // Aggiorna il marker dal GPS SOLO se non sei in simulazione e non suppresso
+                    if (!simulatingTrack && !suppressGPSUpdate) {
+                        userMarker.setLatLng([latitude, longitude]);
+                    }
+                    
+                    // Ruota la freccia in base al heading
+                    if (heading !== null) {
+                        const arrowIcon = L.divIcon({
+                            html: `<div style="background: none; border: none; box-shadow: none;"><svg width="32" height="32" viewBox="0 0 32 32" style="transform: rotate(${heading}deg); filter: drop-shadow(0 0 3px rgba(0,0,0,0.5));">
+                                <polygon points="16,0 28,32 16,24 4,32" fill="#00bcd4" stroke="white" stroke-width="1.5"/>
+                            </svg></div>`,
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 16],
+                            className: ''
+                        });
+                        userMarker.setIcon(arrowIcon);
+                        
+                        // DEBUG OVERLAY
+                        const debugOverlay = document.getElementById('debugOverlay');
+                        const mapContainer = document.getElementById('map');
+                        
+                        if (mapRotationActive && debugOverlay) {
+                            debugOverlay.style.display = 'block';
+                            document.getElementById('debugHeading').textContent = heading !== null ? heading.toFixed(0) : 'null';
+                            document.getElementById('debugSpeed').textContent = speed ? speed.toFixed(2) : '0';
+                            
+                            const speedValid = speed > 1.1;
+                            const headingValid = heading !== null && heading !== undefined;
+                            document.getElementById('debugValid').textContent = (speedValid && headingValid) ? 'YES' : 'NO';
+                            document.getElementById('debugRotation').textContent = (-lastValidHeading).toFixed(0);
+                            
+                            if (mapContainer) {
+                                const currentTransform = mapContainer.style.transform || 'NONE';
+                                document.getElementById('debugTransform').textContent = currentTransform.substring(0, 30);
+                            }
+                        } else if (debugOverlay) {
+                            debugOverlay.style.display = 'none';
+                        }
+                        
+                        // ROTAZIONE HEADS-UP (DISABILITATA - Leaflet non supporta bene CSS rotate)
+                        // Approccio con CSS transform non funziona: ruota il container globalmente causando:
+                        // - Cursore che sparisce fuori viewport
+                        // - Schermo nero ai lati
+                        // TODO: Usare Leaflet-Rotate plugin nativo o SVG canvas rotation
+                        if (mapRotationActive && followMode) {
+                            const speedValid = speed > 1.1;
+                            const headingValid = heading !== null && heading !== undefined;
+                            
+                            if (speedValid && headingValid) {
+                                lastValidHeading = heading;
+                                console.log('✓ Heading rilevato:', lastValidHeading, '(Heads-Up disabilitato)');
+                            }
+                            // Rotazione disabilitata per ora
+                        }
+                    }
+                    
+                    if (followMode) map.panTo([latitude, longitude]);
+                    
+                    if (isRecording && !isPaused) {
+                        recordingTrack.push({
+                            lat: latitude,
+                            lon: longitude,
+                            time: Date.now(),
+                            speed: speed || 0
+                        });
+                        drawRecordingTrack();
+                    }
+                },
+                (error) => {
+                    console.error('GPS Error:', error.code);
+                },
+                {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 10000
+                }
+            );
+        }
+        
+        function updateUI() {
+            if (!lastCoords) return;
+            
+            const { lat, lon, heading, speed, accuracy } = lastCoords;
+            
+            document.getElementById('coords').textContent = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+            document.getElementById('accuracy').textContent = `${accuracy.toFixed(0)}m`;
+            document.getElementById('heading').textContent = heading !== null ? `${heading.toFixed(0)}°` : '--';
+            
+            const speedKmh = speed ? (speed * 3.6).toFixed(1) : 0;
+            document.getElementById('speedValue').textContent = speedKmh;
+            document.getElementById('speed').textContent = speedKmh + ' km/h';
+            
+            // Aggiorna tracking traccia GPX SOLO se non in simulazione e se segui la traccia vera
+            if (!simulatingTrack && followingGPXTrack) {
+                updateGPXTracking();
+            }
+            
+            // Aggiorna rotta verso waypoint se uno è selezionato - SEMPRE dinamica
+            if (currentSelectedWaypoint) {
+                // Rimuovi la rotta precedente se esiste
+                if (waypointRoutePolyline) {
+                    map.removeLayer(waypointRoutePolyline);
+                }
+                
+                // Ricrea la rotta dalla posizione GPS attuale al waypoint
+                waypointRoutePolyline = L.polyline([
+                    [lat, lon],
+                    [currentSelectedWaypoint.lat, currentSelectedWaypoint.lon]
+                ], {
+                    color: '#ff00ff',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '5, 5'
+                }).addTo(map);
+                
+                // Calcola distanza e tempo a destinazione
+                const distToWaypoint = calculateDistance(lat, lon, currentSelectedWaypoint.lat, currentSelectedWaypoint.lon);
+                
+                // Aggiorna il riquadro overlay sulla mappa
+                document.getElementById('destinationDisplay').style.display = 'block';
+                document.getElementById('destOverlayName').textContent = currentSelectedWaypoint.name;
+                document.getElementById('destOverlayDist').textContent = `${distToWaypoint.toFixed(2)} km`;
+                
+                // Calcola tempo stimato (distanza / velocità attuale)
+                // lastCoords.speed è in m/s, convertiamo a km/h (* 3.6)
+                const speedKmh = (lastCoords && lastCoords.speed !== null && lastCoords.speed !== undefined) ? lastCoords.speed * 3.6 : 0;
+                if (speedKmh > 0.1) {
+                    const timeHours = distToWaypoint / speedKmh;
+                    const hours = Math.floor(timeHours);
+                    const minutes = Math.floor((timeHours - hours) * 60);
+                    document.getElementById('destOverlayTime').textContent = `${hours}h ${minutes}m`;
+                } else {
+                    document.getElementById('destOverlayTime').textContent = '--';
+                }
+            } else {
+                // Se nessun waypoint selezionato
+                if (waypointRoutePolyline) {
+                    map.removeLayer(waypointRoutePolyline);
+                    waypointRoutePolyline = null;
+                }
+                // Nascondi il riquadro overlay
+                document.getElementById('destinationDisplay').style.display = 'none';
+            }
+            
+            if (isRecording && recordingTrack.length > 0) {
+                const dist = calculateTrackDistance(recordingTrack);
+                document.getElementById('distance').textContent = `${(dist / 1000).toFixed(2)} km`;
+                
+                const elapsed = (Date.now() - recordingStartTime) / 1000;
+                const avgSpd = dist / elapsed * 3.6;
+                document.getElementById('avgSpeed').textContent = `${avgSpd.toFixed(1)} km/h`;
+            }
+        }
+        
+        function startRecording() {
+            isRecording = true;
+            isPaused = false;
+            recordingTrack = [];
+            recordingStartTime = Date.now() - pausedTime;
+            pausedTime = 0;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('recordingStatus').innerHTML = '<div class="status-recording">🔴 REGISTRANDO...</div>';
+        }
+        
+        function pauseRecording() {
+            if (!isRecording) return;
+            isPaused = !isPaused;
+            pausedTime = Date.now() - recordingStartTime;
+            document.getElementById('pauseBtn').textContent = isPaused ? '▶ Riprendi' : '⏸ Pausa';
+        }
+        
+        function stopRecording() {
+            isRecording = false;
+            isPaused = false;
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('pauseBtn').textContent = '⏸ Pausa';
+            document.getElementById('recordingStatus').innerHTML = '';
+            
+            if (recordingTrack.length > 0) {
+                const name = prompt('Nome della traccia:') || `Traccia ${new Date().toLocaleTimeString()}`;
+                exportTrackGPX(name, recordingTrack);
+            }
+            recordingTrack = [];
+        }
+        
+        function drawRecordingTrack() {
+            if (recordingTrack.length < 2) return;
+            
+            const points = recordingTrack.map(p => [p.lat, p.lon]);
+            gpxLayer.clearLayers();
+            L.polyline(points, {
+                color: '#ff6b6b',
+                weight: 3,
+                opacity: 0.8
+            }).addTo(gpxLayer);
+        }
+        
+        function toRad(deg) { return deg * Math.PI / 180; }
+        function toDeg(rad) { return rad * 180 / Math.PI; }
+        
+        function haversine(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        function calculateTrackDistance(track) {
+            let dist = 0;
+            for (let i = 1; i < track.length; i++) {
+                dist += haversine(track[i-1].lat, track[i-1].lon, track[i].lat, track[i].lon) * 1000;
+            }
+            return dist;
+        }
+        
+        function updateGPXTracking() {
+            if (!followingGPXTrack || !loadedGPXTrack || !lastCoords) {
+                console.log('updateGPXTracking EARLY RETURN:', { followingGPXTrack, loadedGPXTrack: !!loadedGPXTrack, lastCoords: !!lastCoords });
+                return;
+            }
+            
+            console.log('updateGPXTracking RUNNING - gpxLayer layers:', gpxLayer.getLayers().length, 'lastCoords:', lastCoords);
+            
+            const { lat, lon } = lastCoords;
+            const track = loadedGPXTrack;
+            
+            // Trova punto più vicino sulla traccia
+            let minDist = Infinity;
+            let closestIdx = 0;
+            
+            for (let i = 0; i < track.length; i++) {
+                const dist = haversine(lat, lon, track[i][0], track[i][1]);
+                if (dist < minDist) {
+                    minDist = dist;
+                    closestIdx = i;
+                }
+            }
+            
+            const offTrackMeters = minDist * 1000;
+            
+            // ALLARME: Se sei fuori traccia di più di 50m
+            if (offTrackMeters > OFF_TRACK_THRESHOLD) {
+                triggerOffTrackAlarm();
+            }
+            
+            // Aggiorna SOLO la linea arancione guida (layer separato)
+            gpxGuideLayer.clearLayers();
+            
+            const nextIdx = Math.min(closestIdx + 1, track.length - 1);
+            if (nextIdx < track.length && closestIdx < track.length - 1) {
+                const zoom = map.getZoom();
+                const weight = 2 + (zoom - 12) * 0.4;
+                
+                L.polyline([
+                    [lat, lon],
+                    [track[nextIdx][0], track[nextIdx][1]]
+                ], {
+                    color: '#ffa500',
+                    weight: Math.max(3, weight + 1),
+                    opacity: 0.9
+                }).addTo(gpxGuideLayer);
+            }
+        }
+        
+        function saveWaypointHere() {
+            if (!lastCoords) { alert('GPS non disponibile'); return; }
+            
+            const name = document.getElementById('waypointName').value || `WP-${Date.now()}`;
+            const note = document.getElementById('waypointNote').value;
+            
+            const wp = {
+                id: String(Date.now()),
+                name,
+                note,
+                lat: lastCoords.lat,
+                lon: lastCoords.lon,
+                time: new Date().toLocaleString()
+            };
+            
+            waypoints.push(wp);
+            saveWaypointsToStorage();
+            renderWaypointList();
+            updateWaypointDropbox(); // Aggiorna la Dropbox
+            
+            document.getElementById('waypointName').value = '';
+            document.getElementById('waypointNote').value = '';
+            
+            addWaypointMarker(wp);
+        }
+        
+        function renderWaypointList() {
+            const list = document.getElementById('waypointList');
+            list.innerHTML = waypoints.map(wp => `
+                <div class="waypoint-item" onclick="selectWaypoint(${wp.id})">
+                    <div style="font-weight: bold;">${wp.name}</div>
+                    <div style="font-size: 0.7rem; color: #888;">${wp.lat.toFixed(4)}, ${wp.lon.toFixed(4)}</div>
+                    ${wp.note ? `<div style="font-size: 0.7rem; color: #888;">${wp.note}</div>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        function selectWaypoint(id) {
+            const wp = waypoints.find(w => w.id === id);
+            if (!wp) return;
+            map.panTo([wp.lat, wp.lon]);
+            map.setZoom(15);
+        }
+        
+        function addWaypointMarker(wp) {
+            L.circleMarker([wp.lat, wp.lon], {
+                radius: 6,
+                fillColor: '#ffa500',
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.7
+            }).bindPopup(`<b>${wp.name}</b><br>${wp.note || ''}`).addTo(map);
+        }
+        
+        function saveWaypointsToStorage() {
+            localStorage.setItem('gps-waypoints', JSON.stringify(waypoints));
+        }
+        
+        function loadWaypointsFromStorage() {
+            // Waypoint predefiniti (boa e punti di interesse)
+            const defaultWaypoints = [
+                { id: 'ferale', name: 'Ferale', lat: 44.071187693614625, lon: 9.780945734785972, note: 'Punta Ferale' },
+                { id: 'boa-b', name: 'Boa B (Ponente)', lat: 44.138167, lon: 9.601000, note: 'Boa di ponente' },
+                { id: 'boa-c', name: 'Boa C (Levante)', lat: 44.059000, lon: 9.724667, note: 'Boa di levante' }
+            ];
+            
+            const data = localStorage.getItem('gps-waypoints');
+            if (data) {
+                waypoints = JSON.parse(data);
+                // Aggiungi waypoint predefiniti se non già presenti
+                defaultWaypoints.forEach(defaultWp => {
+                    if (!waypoints.find(wp => wp.id === defaultWp.id)) {
+                        waypoints.push(defaultWp);
+                    }
+                });
+            } else {
+                waypoints = defaultWaypoints;
+            }
+            
+            // Aggiorna la Dropbox
+            updateWaypointDropbox();
+            
+            // Aggiungi i marker dei waypoint sulla mappa
+            waypoints.forEach(wp => {
+                addWaypointMarker(wp);
+            });
+        }
+        
+        function updateWaypointDropbox() {
+            const dropbox = document.getElementById('waypointDropbox');
+            if (!dropbox) return;
+            
+            dropbox.innerHTML = '<option value="">-- Seleziona un waypoint --</option>';
+            waypoints.forEach(wp => {
+                const option = document.createElement('option');
+                option.value = wp.id || wp.name; // Usa id se presente, altrimenti nome
+                option.textContent = wp.name;
+                dropbox.appendChild(option);
+            });
+        }
+        
+        function handleWaypointDropboxChange() {
+            const dropbox = document.getElementById('waypointDropbox');
+            
+            // Se deselezionato (valore empty), cancella la navigazione
+            if (dropbox.value === '') {
+                stopWaypointNavigation();
+            }
+        }
+        
+        function stopWaypointNavigation() {
+            console.log('Navigazione waypoint cancellata');
+            currentSelectedWaypoint = null;
+            
+            // Rimuovi la rotta dalla mappa
+            if (waypointRoutePolyline) {
+                map.removeLayer(waypointRoutePolyline);
+                waypointRoutePolyline = null;
+            }
+            
+            // Nascondi il riquadro destinazione
+            document.getElementById('destinationDisplay').style.display = 'none';
+        }
+        
+        function navigateToSelectedWaypoint() {
+            const dropbox = document.getElementById('waypointDropbox');
+            const selectedId = dropbox.value;
+            
+            if (!selectedId) {
+                alert('Seleziona un waypoint');
+                return;
+            }
+            
+            const selectedWp = waypoints.find(wp => String(wp.id || wp.name) === selectedId);
+            if (!selectedWp) {
+                alert('Waypoint non trovato');
+                return;
+            }
+            
+            navigateToWaypoint(selectedWp);
+        }
+        
+        function navigateToWaypoint(wp) {
+            if (!lastCoords) {
+                alert('Posizione GPS non disponibile');
+                return;
+            }
+            
+            console.log('Naviga a waypoint:', wp.name, wp.lat, wp.lon);
+            
+            currentSelectedWaypoint = wp;
+            
+            // Avvia automaticamente la registrazione se non è già in corso
+            if (!isRecording) {
+                console.log('Inizio registrazione automatica');
+                startRecording();
+            }
+            
+            // Rimuovi la rotta precedente se esiste
+            if (waypointRoutePolyline) {
+                map.removeLayer(waypointRoutePolyline);
+            }
+            
+            // Disegna una linea retta dalla posizione GPS al waypoint (colore magenta)
+            waypointRoutePolyline = L.polyline([
+                [lastCoords.lat, lastCoords.lon],
+                [wp.lat, wp.lon]
+            ], {
+                color: '#ff00ff',
+                weight: 3,
+                opacity: 0.8,
+                dashArray: '5, 5'
+            }).addTo(map);
+            
+            // Centra la mappa per mostrare sia il marker che il waypoint
+            const featureGroup = L.featureGroup([
+                L.marker([lastCoords.lat, lastCoords.lon]),
+                L.marker([wp.lat, wp.lon])
+            ]);
+            map.fitBounds(featureGroup.getBounds(), { padding: [50, 50] });
+            
+            // Aggiungi marker al waypoint se non esiste
+            if (!wp.marker) {
+                addWaypointMarker(wp);
+            }
+            
+            // Aggiorna SUBITO il riquadro destinazione sulla mappa (overlay)
+            const distToWaypoint = calculateDistance(lastCoords.lat, lastCoords.lon, wp.lat, wp.lon);
+            
+            // Mostra il riquadro destinazione
+            document.getElementById('destinationDisplay').style.display = 'block';
+            document.getElementById('destOverlayName').textContent = wp.name;
+            document.getElementById('destOverlayDist').textContent = `${distToWaypoint.toFixed(2)} km`;
+            
+            const speedKmh = (lastCoords && lastCoords.speed !== null && lastCoords.speed !== undefined) ? lastCoords.speed * 3.6 : 0;
+            if (speedKmh > 0.1) {
+                const timeHours = distToWaypoint / speedKmh;
+                const hours = Math.floor(timeHours);
+                const minutes = Math.floor((timeHours - hours) * 60);
+                document.getElementById('destOverlayTime').textContent = `${hours}h ${minutes}m`;
+            } else {
+                document.getElementById('destOverlayTime').textContent = '--';
+            }
+            
+            alert(`Navigazione verso ${wp.name}\nDistanza: ${distToWaypoint.toFixed(2)} km`);
+        }
+        
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            // Formula Haversine per calcolare la distanza in km
+            const R = 6371; // Raggio terrestre in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+        
+        function exportWaypoints() {
+            const blob = new Blob([JSON.stringify(waypoints, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `waypoints-${Date.now()}.json`;
+            a.click();
+        }
+        
+        function loadWaypoints() {
+            const file = document.getElementById('waypointFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    waypoints = JSON.parse(e.target.result);
+                    saveWaypointsToStorage();
+                    renderWaypointList();
+                    updateWaypointDropbox(); // Aggiorna la Dropbox
+                    alert(`Caricati ${waypoints.length} waypoint`);
+                } catch (err) {
+                    alert('Errore: file JSON invalido');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function loadGPX() {
+            const file = document.getElementById('gpxFile').files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const xml = new DOMParser().parseFromString(e.target.result, 'application/xml');
+                    const trkpts = xml.querySelectorAll('trkpt');
+                    const points = Array.from(trkpts).map(pt => [
+                        parseFloat(pt.getAttribute('lat')),
+                        parseFloat(pt.getAttribute('lon'))
+                    ]);
+                    
+                    if (points.length === 0) throw new Error('Nessun punto trovato');
+                    
+                    // Salva la traccia
+                    loadedGPXTrack = points;
+                    
+                    // Estrai elevazioni dal GPX
+                    loadedGPXElevations = Array.from(trkpts).map(pt => {
+                        const eleEl = pt.querySelector('ele');
+                        return eleEl ? parseFloat(eleEl.textContent) : 0;
+                    });
+                    
+                    // Disegna profilo altimetrico
+                    drawElevationChart();
+                    
+                    gpxLayer.clearLayers();
+                    
+                    // Calcola spessore basato su zoom attuale
+                    const zoom = map.getZoom();
+                    const weight = 2 + (zoom - 12) * 0.4;
+                    
+                    gpxTrackPolyline = L.polyline(points, {
+                        color: '#4caf50',
+                        weight: Math.max(2, weight),
+                        opacity: 0.8
+                    }).addTo(gpxLayer);
+                    
+                    map.fitBounds(L.polyline(points).getBounds());
+                    
+                    document.getElementById('gpxInfo').innerHTML = 
+                        `<strong>${points.length} punti</strong><br>` +
+                        `Inizio: ${points[0]}<br>` +
+                        `Fine: ${points[points.length-1]}`;
+                    
+                    // Abilita bottoni follow e simulazione
+                    const btn = document.getElementById('followGPXBtn');
+                    btn.disabled = false;
+                    btn.textContent = '▶ Inizia a seguire';
+                    
+                    // Abilita bottone simulazione
+                    document.getElementById('simStartBtn').disabled = false;
+                } catch (err) {
+                    alert('Errore GPX: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        function startFollowGPXTrack() {
+            if (!loadedGPXTrack || loadedGPXTrack.length === 0) {
+                console.log('Nessuna traccia caricata');
+                return;
+            }
+            
+            console.log('startFollowGPXTrack - lastCoords:', lastCoords);
+            
+            // Ferma simulazione se è in corso
+            if (simulatingTrack) {
+                console.log('Ferma simulazione');
+                stopSimulation();
+                simulatingTrack = false;
+            }
+            
+            // Blocca aggiornamenti GPS temporaneamente durante il reset
+            suppressGPSUpdate = true;
+            
+            // IMPORTANTE: Durante follow VERO, il marker DEVE stare sulla posizione GPS reale
+            // Se hai GPS → usa quello
+            // Se NO GPS → resetta al primo punto traccia e aspetta il GPS
+            if (lastCoords && lastCoords.lat !== undefined && lastCoords.lon !== undefined) {
+                console.log('GPS disponibile - marker va sulla posizione GPS:', lastCoords.lat, lastCoords.lon);
+                userMarker.setLatLng([lastCoords.lat, lastCoords.lon]);
+                map.setView([lastCoords.lat, lastCoords.lon], 17);
+            } else {
+                console.log('GPS non disponibile - marker va al primo punto GPX');
+                const firstPoint = loadedGPXTrack[0];
+                if (firstPoint && firstPoint.length === 2) {
+                    userMarker.setLatLng([firstPoint[0], firstPoint[1]]);
+                    map.setView([firstPoint[0], firstPoint[1]], 17);
+                }
+            }
+            
+            simulationPointIndex = 0; // Reset simulazione
+            followingGPXTrack = true;
+            
+            // Avvia automaticamente la registrazione se non è già in corso
+            if (!isRecording) {
+                console.log('Inizio registrazione automatica (follow GPX)');
+                startRecording();
+            }
+            
+            // Refresh immediato per disegnare la linea arancione
+            updateGPXTracking();
+            
+            // Riabilita aggiornamenti GPS dopo 500ms (da tempo al reset di prendere effetto)
+            setTimeout(() => {
+                suppressGPSUpdate = false;
+                console.log('Aggiornamenti GPS riabilitati');
+            }, 500);
+            
+            const btn = document.getElementById('followGPXBtn');
+            btn.textContent = '⏹ Termina follow';
+            btn.className = 'danger';
+            btn.onclick = () => stopFollowGPXTrack();
+        }
+        
+        function stopFollowGPXTrack() {
+            followingGPXTrack = false;
+            
+            // Pulisce SOLO la linea arancione (gpxGuideLayer)
+            gpxGuideLayer.clearLayers();
+            
+            const btn = document.getElementById('followGPXBtn');
+            btn.textContent = '▶ Inizia a seguire';
+            btn.className = '';
+            btn.onclick = () => startFollowGPXTrack();
+        }
+        
+        function exportTrackGPX(name, track) {
+            let gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GPS Navigator">
+  <trk>
+    <name>${name}</name>
+    <trkseg>`;
+            
+            track.forEach(pt => {
+                const time = new Date(pt.time).toISOString();
+                gpx += `\n      <trkpt lat="${pt.lat}" lon="${pt.lon}">
+        <time>${time}</time>
+        <speed>${pt.speed}</speed>
+      </trkpt>`;
+            });
+            
+            gpx += `\n    </trkseg>
+  </trk>
+</gpx>`;
+            
+            const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name.replace(/\s+/g, '-')}.gpx`;
+            a.click();
+        }
+        
+        function startTimer() {
+            setInterval(() => {
+                if (isRecording && !isPaused && recordingStartTime) {
+                    const elapsed = ((Date.now() - recordingStartTime) / 1000);
+                    const hours = Math.floor(elapsed / 3600);
+                    const minutes = Math.floor((elapsed % 3600) / 60);
+                    const seconds = Math.floor(elapsed % 60);
+                    document.getElementById('time').textContent = 
+                        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+        
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+        
+        function centerMapAndZoom() {
+            if (lastCoords) {
+                followMode = true;
+                document.getElementById('followBtn').textContent = '🎯 Follow ON';
+                document.getElementById('followBtn').style.background = '#4caf50';
+                document.getElementById('northBtn').style.background = '#4caf50';
+                map.setView([lastCoords.lat, lastCoords.lon], 17);
+            } else {
+                alert('Posizione GPS non disponibile');
+            }
+        }
+        
+        function toggleFollowMode() {
+            followMode = !followMode;
+            const btn = document.getElementById('followBtn');
+            
+            if (followMode) {
+                btn.textContent = '🎯 Follow ON';
+                btn.style.background = '#4caf50';
+                document.getElementById('northBtn').style.background = '#4caf50';
+            } else {
+                btn.textContent = '🎯 Follow OFF';
+                btn.style.background = '#00bcd4';
+                document.getElementById('northBtn').style.background = '#ff9800';
+            }
+        }
+        
+        function toggleNorthUp() {
+            followMode = false;
+            document.getElementById('followBtn').style.background = '#00bcd4';
+            document.getElementById('followBtn').textContent = '🎯 Follow OFF';
+            document.getElementById('northBtn').style.background = '#ff9800';
+        }
+        
+        function togglePanel() {
+            const panel = document.getElementById('panel');
+            panel.classList.toggle('open');
+        }
+        
+        function drawElevationChart() {
+            if (!loadedGPXElevations || loadedGPXElevations.length === 0) return;
+            
+            const canvas = document.getElementById('elevationChart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const padding = 20;
+            
+            // Pulisci canvas
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, width, height);
+            
+            // Trova min/max elevazione
+            const minEle = Math.min(...loadedGPXElevations);
+            const maxEle = Math.max(...loadedGPXElevations);
+            const eleRange = maxEle - minEle || 1;
+            
+            // Disegna asse
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(padding, height - padding);
+            ctx.lineTo(width - padding, height - padding);
+            ctx.stroke();
+            
+            // Disegna grafico
+            ctx.strokeStyle = '#4caf50';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            for (let i = 0; i < loadedGPXElevations.length; i++) {
+                const x = padding + (i / (loadedGPXElevations.length - 1 || 1)) * (width - 2 * padding);
+                const y = height - padding - ((loadedGPXElevations[i] - minEle) / eleRange) * (height - 2 * padding);
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Etichette min/max
+            ctx.fillStyle = '#888';
+            ctx.font = '0.7rem sans-serif';
+            ctx.fillText(Math.round(maxEle) + 'm', padding, 12);
+            ctx.fillText(Math.round(minEle) + 'm', padding, height - 5);
+        }
+        
+        function updateSimSpeed() {
+            simulationSpeed = parseInt(document.getElementById('simSpeedSlider').value);
+            document.getElementById('speedLabel').textContent = simulationSpeed;
+        }
+        
+        function startSimulation() {
+            if (!loadedGPXTrack || loadedGPXTrack.length < 2) return;
+            
+            // Ferma il follow mode della traccia vera - ora è SIMULAZIONE
+            if (followingGPXTrack) {
+                stopFollowGPXTrack();
+            }
+            
+            simulatingTrack = true;
+            simulationPointIndex = 0;
+            
+            document.getElementById('simStartBtn').disabled = true;
+            document.getElementById('simStopBtn').disabled = false;
+            document.getElementById('simSpeedSlider').disabled = true;
+            
+            // Aggiorna ogni 100ms
+            simulationInterval = setInterval(() => {
+                if (!simulatingTrack) return;
+                
+                // Avanza di simulationSpeed punti per iterazione
+                simulationPointIndex += (simulationSpeed / 10);
+                
+                if (simulationPointIndex >= loadedGPXTrack.length - 1) {
+                    stopSimulation();
+                    return;
+                }
+                
+                // Interpola tra i due punti più vicini
+                const idx1 = Math.floor(simulationPointIndex);
+                const idx2 = Math.min(idx1 + 1, loadedGPXTrack.length - 1);
+                const t = simulationPointIndex - idx1; // 0 a 1
+                
+                const lat = loadedGPXTrack[idx1][0] + (loadedGPXTrack[idx2][0] - loadedGPXTrack[idx1][0]) * t;
+                const lon = loadedGPXTrack[idx1][1] + (loadedGPXTrack[idx2][1] - loadedGPXTrack[idx1][1]) * t;
+                
+                // Simula il heading (direzione verso il prossimo punto)
+                const nextLat = loadedGPXTrack[idx2][0];
+                const nextLon = loadedGPXTrack[idx2][1];
+                const bearing = Math.atan2(
+                    Math.sin((nextLon - lon) * Math.PI / 180) * Math.cos(nextLat * Math.PI / 180),
+                    Math.cos(lat * Math.PI / 180) * Math.sin(nextLat * Math.PI / 180) -
+                    Math.sin(lat * Math.PI / 180) * Math.cos(nextLat * Math.PI / 180) * Math.cos((nextLon - lon) * Math.PI / 180)
+                ) * 180 / Math.PI;
+                const heading = (bearing + 360) % 360;
+                
+                // Aggiorna lastCoords come se fosse GPS reale
+                lastCoords = {
+                    lat: lat,
+                    lon: lon,
+                    heading: heading,
+                    speed: 0,
+                    accuracy: 5
+                };
+                
+                updateUI();
+                
+                // Aggiorna marker
+                userMarker.setLatLng([lat, lon]);
+                const arrowIcon = L.divIcon({
+                    html: `<div style="background: none; border: none; box-shadow: none;"><svg width="32" height="32" viewBox="0 0 32 32" style="transform: rotate(${heading}deg); filter: drop-shadow(0 0 3px rgba(0,0,0,0.5));">
+                        <polygon points="16,0 28,32 16,24 4,32" fill="#00bcd4" stroke="white" stroke-width="1.5"/>
+                    </svg></div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16],
+                    className: ''
+                });
+                userMarker.setIcon(arrowIcon);
+                
+                // Ruota la mappa verso la direzione della simulazione (track-up)
+                try {
+                    if (map.setBearing) {
+                        map.setBearing(heading);
+                    } else if (map.setRotation) {
+                        map.setRotation(heading);
+                    } else {
+                        map.bearing = heading;
+                    }
+                } catch (e) {
+                    console.error('Errore rotazione simulazione:', e);
+                }
+                
+                if (followMode) map.panTo([lat, lon]);
+                
+                // Aggiorna barra progresso
+                const progress = Math.round((simulationPointIndex / loadedGPXTrack.length) * 100);
+                document.getElementById('simProgressValue').textContent = progress;
+                
+                // Chiama tracking per allarmi
+                updateGPXTracking();
+            }, 100);
+        }
+        
+        function toggleMapRotation() {
+            alert('Heads-Up è in beta e temporaneamente disabilitato.\n\nIl problema: CSS rotate() ruota l\'intero container causando:\n✗ Cursore fuori viewport\n✗ Aree nere ai lati\n\nProssimo step: Usare Leaflet-Rotate plugin nativo o SVG canvas rotation.\n\nSeguimi per gli aggiornamenti! 🚀');
+        }
+        
+        function ruotaElementiInversi(angolo) {
+            // Raddrizza i marker per mantenerli leggibili
+            const markers = document.querySelectorAll('.leaflet-marker-icon, .leaflet-marker-shadow');
+            markers.forEach(el => {
+                el.style.transformOrigin = 'center bottom';
+                el.style.transform = `rotate(${angolo}deg)`;
+            });
+            
+            // Raddrizza i controlli (zoom button, ecc)
+            const controls = document.querySelectorAll('.leaflet-control');
+            controls.forEach(el => {
+                el.style.transform = `rotate(${angolo}deg)`;
+            });
+        }
+        
+        function stopSimulation() {
+            simulatingTrack = false;
+            if (simulationInterval) {
+                clearInterval(simulationInterval);
+                simulationInterval = null;
+            }
+            
+            document.getElementById('simStartBtn').disabled = false;
+            document.getElementById('simStopBtn').disabled = true;
+            document.getElementById('simSpeedSlider').disabled = false;
+            document.getElementById('simProgressValue').textContent = '0';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                const mapEl = document.getElementById('map');
+                if (mapEl) {
+                    mapEl.addEventListener('click', function(e) {
+                        if (window.innerWidth <= 768 && e.target.id === 'map') {
+                            const panel = document.getElementById('panel');
+                            if (panel.classList.contains('open')) {
+                                panel.classList.remove('open');
+                            }
+                        }
+                    });
+                }
+            }, 100);
+        });
+        
+        window.addEventListener('load', initMap);
+    </script>
+</body>
+</html>
