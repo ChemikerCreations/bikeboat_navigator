@@ -931,12 +931,7 @@
         }
         
         function updateGPXTracking() {
-            if (!followingGPXTrack || !loadedGPXTrack || !lastCoords) {
-                console.log('updateGPXTracking EARLY RETURN:', { followingGPXTrack, loadedGPXTrack: !!loadedGPXTrack, lastCoords: !!lastCoords });
-                return;
-            }
-            
-            console.log('updateGPXTracking RUNNING - gpxLayer layers:', gpxLayer.getLayers().length, 'lastCoords:', lastCoords);
+            if (!followingGPXTrack || !loadedGPXTrack || !lastCoords) return;
             
             const { lat, lon } = lastCoords;
             const track = loadedGPXTrack;
