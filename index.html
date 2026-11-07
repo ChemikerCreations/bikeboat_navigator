@@ -585,7 +585,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/leaflet-rotate.umd.js"></script>
     <script>
-        let map, userMarker, gpxLayer, gpxGuideLayer, recordingTrack = [];
+        let map, userMarker, gpxLayer, gpxGuideLayer, recordingLayer, recordingTrack = [];
         let isRecording = false, isPaused = false;
         let recordingStartTime = null, pausedTime = 0;
         let lastCoords = null;
@@ -639,6 +639,7 @@
             
             gpxLayer = L.featureGroup().addTo(map);
             gpxGuideLayer = L.featureGroup().addTo(map);
+            recordingLayer = L.featureGroup().addTo(map);
             
             // Listener per aggiornare spessore traccia al cambio zoom
             map.on('zoom', updateTrackWeight);
@@ -911,12 +912,12 @@
             if (recordingTrack.length < 2) return;
             
             const points = recordingTrack.map(p => [p.lat, p.lon]);
-            gpxLayer.clearLayers();
+            recordingLayer.clearLayers();
             L.polyline(points, {
                 color: '#ff6b6b',
                 weight: 3,
                 opacity: 0.8
-            }).addTo(gpxLayer);
+            }).addTo(recordingLayer);
         }
         
         function toRad(deg) { return deg * Math.PI / 180; }
